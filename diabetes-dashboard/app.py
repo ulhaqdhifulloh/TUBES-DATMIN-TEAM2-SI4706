@@ -27,11 +27,8 @@ st.set_page_config(
 def load_all_assets():
     log_reg = load('logistic_model.joblib')
     scaler = load('scaler.joblib')
-    kmeans_model = load('kmeans_model.joblib') # MUAT MODEL K-MEANS DARI FILE
-
+    
     # Muat dan proses data HANYA SEKALI
-    # Ganti dengan path lokal jika file CSV disertakan dalam deployment untuk kecepatan lebih
-    # Misalnya: df_initial = pd.read_csv('diabetes.csv')
     df_initial = pd.read_csv('https://raw.githubusercontent.com/ulhaqdhifulloh/TUBES-DATMIN-TEAM2-SI4706/main/diabetes.csv')
     
     df_processed = df_initial.copy() # Kita akan memproses dataframe ini
@@ -56,16 +53,18 @@ def load_all_assets():
     y_outcome = df_processed['Outcome'].copy() # Salin untuk menghindari SettingWithCopyWarning
 
     # Scaling fitur menggunakan scaler yang sudah di-load
-    # scaler.transform() mengembalikan NumPy array
     X_scaled_np = scaler.transform(X_for_scaling)
     
-    # Simpan X_scaled_np sebagai NumPy array untuk konsistensi input ke model
-    # Jika model dilatih dengan nama fitur, pastikan konsisten atau latih tanpa nama fitur
-    # Untuk K-Means dan Logistic Regression dari scikit-learn, NumPy array umumnya aman
+    # Inisialisasi dan latih model K-Means dengan parameter yang dioptimalkan
+    kmeans_model = KMeans(
+        n_clusters=2,  # Sesuai dengan model utama
+        init='k-means++',  # Metode inisialisasi yang dioptimalkan
+        n_init=10,  # Jumlah inisialisasi yang dioptimalkan
+        max_iter=300,  # Jumlah iterasi maksimum yang dioptimalkan
+        random_state=42
+    )
+    kmeans_model.fit(X_scaled_np)
     
-    # df_processed akan digunakan untuk tampilan data mentah/deskriptif
-    # y_outcome untuk evaluasi
-    # X_scaled_np untuk prediksi dan evaluasi performa model pada keseluruhan data
     return log_reg, scaler, kmeans_model, X_scaled_np, y_outcome, df_processed, feature_cols
 
 # Load semua aset (model, scaler, data yang diproses dan di-scale)
@@ -266,8 +265,13 @@ with tab3:
         st.markdown(f"**Model:** K-Means Clustering (dengan {n_clusters_kmeans_tab3} segmen)")
         
         # Silhouette score dihitung pada data yang di-scaling
-        sil_score = silhouette_score(X_full_scaled, cluster_labels_full)
-        st.markdown(f"- **Silhouette Score (pada data scaled):** {sil_score:.3f} (Semakin mendekati 1, semakin baik pemisahannya)")
+        # Tambahkan pengecekan jumlah label unik
+        unique_labels = np.unique(cluster_labels_full)
+        if len(unique_labels) >= 2:
+            sil_score = silhouette_score(X_full_scaled, cluster_labels_full)
+            st.markdown(f"- **Silhouette Score (pada data scaled):** {sil_score:.3f} (Semakin mendekati 1, semakin baik pemisahannya)")
+        else:
+            st.warning("Silhouette score tidak dapat dihitung karena hanya ada 1 cluster. Silhouette score membutuhkan minimal 2 cluster yang berbeda.")
         
         st.markdown("**Interpretasi Segmen (Contoh - Sesuaikan dengan Analisis Anda):**")
         # Contoh interpretasi otomatis berdasarkan jumlah cluster
